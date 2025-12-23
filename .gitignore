@@ -4,7 +4,7 @@
 .DS_Store
 *.swp
 *.log
-
+Thumbs.db
 .idea/
 *.iml
 *.ipr
@@ -50,3 +50,7 @@ android/app/release
 .history
 .svn/
 .swiftpm/
+
+# ------------------------------------------------------------
+ios/Pods/
+ios/.symlinks/
