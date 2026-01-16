@@ -10,3 +10,5 @@
 - Clarity before abstraction
 - Community contribution without surrendering core direction
 - Systems must fail visibly rather than silently
+-No core TrailMthr feature may require inbound connections, LAN discovery, or peer visibility to function.
+Enhancements may use them. Core may not.

@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 
 import '../data/activity_repository.dart';
 import 'activity_summary_screen.dart';
+import 'package:trailmthr_test2/features/thinkspace/data/thinkspace_repository.dart';
+import 'package:trailmthr_test2/features/activity/data/activity_db.dart';
 
 enum ActivitySortMode {
   newestFirst,
@@ -13,12 +15,18 @@ enum ActivitySortMode {
 }
 
 class ActivityHistoryScreen extends StatefulWidget {
-  const ActivityHistoryScreen({super.key});
+  final ThinkSpaceRepository? thinkRepo;
+
+  const ActivityHistoryScreen({
+    super.key,
+    this.thinkRepo,
+  });
 
   @override
   State<ActivityHistoryScreen> createState() =>
-   _ActivityHistoryScreenState();
+      _ActivityHistoryScreenState();
 }
+
 
 class _ActivityHistoryScreenState extends State<ActivityHistoryScreen>
     with SingleTickerProviderStateMixin {
@@ -91,8 +99,9 @@ class _ActivityHistoryScreenState extends State<ActivityHistoryScreen>
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => ActivitySummaryScreen(
+          activityId: activity['id'],
           activity: activity,
-
+          thinkRepo: widget.thinkRepo,
           ),
       ),
     );
@@ -172,7 +181,9 @@ class _ActivityHistoryScreenState extends State<ActivityHistoryScreen>
                 _buildRecordsTab(theme),
               ],
             ),
+            
     );
+    
   }
 
   // ---------------------------------------------------------------------------

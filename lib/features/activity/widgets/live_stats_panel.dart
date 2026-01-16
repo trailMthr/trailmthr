@@ -156,7 +156,13 @@ Widget build(BuildContext context) {
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         ElevatedButton.icon(
-                          onPressed: c.isPaused ? c.resume : c.pause,
+                          onPressed: () {
+                            if(c.isPaused) {
+                              widget.recorder.unpause();
+                            } else {
+                              widget.recorder.pause();
+                            }
+                          },
                           icon: Icon(
                             c.isPaused
                                 ? Icons.play_arrow

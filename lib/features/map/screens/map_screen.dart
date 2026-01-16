@@ -32,8 +32,7 @@ import 'package:trailmthr_test2/features/thinkspace/screens/thinkspace_home_scre
 import 'package:trailmthr_test2/features/thinkspace/widgets/quicknote_sheet.dart';
 
 import 'package:trailmthr_test2/features/activity/data/activity_db.dart';
-
-import '../../activity/services/activity_recovery_service.dart';
+import 'package:trailmthr_test2/core/debug_export.dart';
 
 // ------------------------------------------------------------
 // OWNER / DEVICE ID (for markers, notes, etc.)
@@ -107,96 +106,138 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
   final Color _earthLight = const Color(0xFFDAC7A1);
   final Color _accentMushroom = const Color(0xFF9C6B4F);
 
-  // ------------------------------------------------------------
-  // ACTIVITY RECORDER + CONTROLLER
-  // ------------------------------------------------------------
-  late final LiveActivityController _activityController;
+ // ------------------------------------------------------------
+// ACTIVITY RECORDER + CONTROLLER
+// ------------------------------------------------------------
+late final LiveActivityController _activityController;
+late final ActivityRecorder _recorder;
 
-  late final ActivityRecorder _recorder;
-  RecorderState _state = RecorderState.initial();
-  StreamSubscription<RecorderState>? _recorderSub;
-  TrackingMode _selectedMode = TrackingMode.walk;
-//
-late final ActivityRecoveryService _recovery;
+RecorderState _state = RecorderState.initial();
+late RecorderState _recorderState;
+
+StreamSubscription<RecorderState>? _recorderSub;
+
+bool _resumeDialogShown = false;
+
 ActivityRecorder get recorder => _recorder;
 LiveActivityController get controller => _activityController;
 
-  // ------------------------------------------------------------
-  // LIFECYCLE
-  // ------------------------------------------------------------
+///// To prevent multiple resume prompts
+bool _resumePromptInFlight = false;
+
+// ------------------------------------------------------------
+// LIFECYCLE
+// ------------------------------------------------------------
+late final VoidCallback _resumeListener;
+
 @override
 void initState() {
   super.initState();
 
-  // 1️⃣ Assign injected dependencies FIRST
+  // 1) Assign injected dependencies FIRST
   _recorder = widget.recorder;
   _activityController = widget.controller;
   _thinkRepo = widget.thinkRepo;
 
-  // 2️⃣ Now it is SAFE to construct recovery service
-  _recovery = ActivityRecoveryService(
-    controller: _activityController,
-    recorder: _recorder,
-  );
+  // 2) Wire recorder -> controller (so UI distance updates always work)
+  _recorder.liveController = _activityController;
+//
+unawaited(_activityController.initRecovery().then((_) => _maybePromptResume()));
+  // 3) Listener (store the callback so removeListener works)
 
-  _recovery.recoverIfNeeded();
+  // 4) Safe time to show dialogs (one-shot)
+  WidgetsBinding.instance.addPostFrameCallback((_) {
+    _maybePromptResume();
+  });
 
-  // 3️⃣ Flower animation
+  // 5) Recorder UI state init
+  _recorderState = RecorderState.initial();
+  _state = RecorderState.initial();
+
+  // 6) Subscribe once to recorder state
+  _recorderSub = _recorder.stateStream.listen((s) {
+    if (!mounted) return;
+
+    setState(() {
+      _recorderState = s;
+      _state = s;
+    });
+
+    // Auto-follow while recording
+    if (s.isRecording && s.polyline.isNotEmpty) {
+      final last = s.polyline.last;
+      _mapController.move(last, _mapZoom);
+    }
+  });
+
+  // 7) Your other init work
   _menuController = AnimationController(
     vsync: this,
     duration: const Duration(milliseconds: 220),
   );
-
   _menuAnim = CurvedAnimation(
     parent: _menuController,
     curve: Curves.easeOutBack,
   );
 
-  // 4️⃣ Recorder stream
-  _recorderSub = _recorder.stateStream.listen((s) {
-    safeSetState(() => _state = s);
-  });
-
-  // 5️⃣ Resume prompt
-  WidgetsBinding.instance.addPostFrameCallback((_) {
-    if (_activityController.needsResumePrompt) {
-      _showResumeDialog();
-    }
-  });
-
-  // 6️⃣ Data + GPS
   _loadSavedPlaces();
   _initLocation();
 }
 
-//
+Future<void> _maybePromptResume() async {
+  if (!mounted) return;
 
+  final c = _activityController;
 
-  @override
-  void dispose() {
-    _gpsSub?.cancel();
-    _recorderSub?.cancel();
+  // Wait for recovery to finish
+  if (!c.recoveryComplete) return;
 
-    _menuController.dispose();
-    super.dispose();
+  // Prevent concurrent prompts during async DB checks
+  if (_resumePromptInFlight) return;
+  _resumePromptInFlight = true;
+
+  try {
+    if (_resumeDialogShown) return;
+    if (!c.needsResumePrompt) return;
+
+    final id = c.activityId;
+    if (id == null || id.isEmpty) {
+      c.needsResumePrompt = false;
+      return;
+    }
+
+    final ok = await _recorder.hasUnfinishedActivityInDb(id);
+    if (!ok) {
+      c.needsResumePrompt = false;
+      await c.forceIdle();
+      await _recorder.discardSession();
+      return;
+    }
+
+    // Disarm prompt BEFORE showing dialog
+    _resumeDialogShown = true;
+    c.needsResumePrompt = false;
+
+    _showResumeDialog();
+  } finally {
+    _resumePromptInFlight = false;
   }
-
-//
-void recoverSessionIfNeeded() {
-  if (!recorder.canResumeSafely) {
-    controller.forceIdle();
-    recorder.discardSession();
-    return;
-  }
-
-  recorder.restartGpsStream();
 }
 
-//
+
+@override
+void dispose() {
+  _gpsSub?.cancel();
+  _recorderSub?.cancel();
+
+  _menuController.dispose();
+  super.dispose();
+}
+
 void _showResumeDialog() {
   showDialog(
     context: context,
-    barrierDismissible: false, // user must choose
+    barrierDismissible: false,
     builder: (_) => AlertDialog(
       title: const Text('Unfinished activity'),
       content: const Text(
@@ -204,18 +245,33 @@ void _showResumeDialog() {
       ),
       actions: [
         TextButton(
-          onPressed: () {
+          onPressed: () async {
             Navigator.of(context).pop();
-            _recovery.discard();
+            await _activityController!.discardLiveSession();
+            await _recorder.discardSession();
           },
           child: const Text('Discard'),
         ),
         ElevatedButton(
-          onPressed: () {
-            Navigator.of(context).pop();
-            _recovery.resume();
-            _recorder.restartGpsStream();
-          },
+onPressed: () async {
+  Navigator.of(context).pop();
+
+  final c = _activityController!;
+  _recorder.liveController = c;
+
+  // Keep controller paused->recording (ticker resumes)
+  await c.resume();
+
+  // Resume recorder stream + attach to existing activity
+  await _recorder.resumeFromRecovery(
+    mode: c.selectedMode ?? TrackingMode.walk,
+    activityId: c.activityId!,
+    startTime: c.sessionStart!,
+    distanceM: c.distanceMeters,
+    createIfMissing: false, // you already validated ok==true earlier
+  );
+},
+
           child: const Text('Resume'),
         ),
       ],
@@ -373,15 +429,7 @@ void _showResumeDialog() {
         _safeMove(initial, 16);
       }
 
-      _gpsSub?.cancel();
-      _gpsSub = Geolocator.getPositionStream().listen((pos) {
-        final live = ll.LatLng(pos.latitude, pos.longitude);
-        currentLocation = live;
 
-        if (_menuController.isDismissed && mounted) {
-          setState(() {});
-        }
-      });
     } catch (e) {
       debugPrint("[GPS] ERROR: $e");
     }
@@ -414,9 +462,7 @@ Future<void> _confirmStop() async {
     context: context,
     builder: (context) => AlertDialog(
       title: const Text('End Activity?'),
-      content: const Text(
-        'This will finish and save your activity.',
-      ),
+      content: const Text('This will finish and save your activity.'),
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context, false),
@@ -432,17 +478,11 @@ Future<void> _confirmStop() async {
 
   if (confirmed != true) return;
 
-  // 🔴 lifecycle-controlled stop
-  _activityController.beginFinalizing();
-
-  // persist + navigate (this should already exist in MapScreen)
-  await _confirmStop();
-
-  WidgetsBinding.instance.addPostFrameCallback((_) {
-    _activityController.markFinalized();
-    _activityController.reset();
-  });
+  // Use the same stop pipeline as the Stop button.
+  await _openActivityFolder();
 }
+
+
 
   // ------------------------------------------------------------
   // MARKER DETAIL FLOW
@@ -483,6 +523,8 @@ Future<void> _confirmStop() async {
   // MAP WIDGET
   // ------------------------------------------------------------
   Widget _buildMap(ll.LatLng center) {
+    final ll.LatLng? liveDot =
+    _recorderState.polyline.isNotEmpty ? _recorderState.polyline.last : currentLocation;
     return FlutterMap(
       mapController: _mapController,
       options: MapOptions(
@@ -523,7 +565,17 @@ WidgetsBinding.instance.addPostFrameCallback((_) {
           urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
           userAgentPackageName: 'com.trailmthr.app',
         ),
-
+    // 🔶 LIVE ACTIVITY POLYLINE
+    if (_recorderState.polyline.isNotEmpty)
+      PolylineLayer(
+        polylines: [
+          Polyline(
+            points: _recorderState.polyline,
+            strokeWidth: 4,
+            color: Colors.orangeAccent, // or whichever
+          ),
+        ],
+      ),
         // Saved markers
         MarkerLayer(
           markers: [
@@ -545,20 +597,21 @@ WidgetsBinding.instance.addPostFrameCallback((_) {
                 ),
               ),
 
-            // Current location indicator
-            if (currentLocation != null)
-              Marker(
-                point: currentLocation!,
-                width: 30,
-                height: 30,
-                child: Container(
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: Colors.blue.withOpacity(0.85),
-                    border: Border.all(color: Colors.white, width: 2),
-                  ),
-                ),
-              ),
+// Current location indicator (follow live polyline when recording)
+if (liveDot != null)
+  Marker(
+    point: liveDot,
+    width: 30,
+    height: 30,
+    child: Container(
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: Colors.blue.withOpacity(0.85),
+        border: Border.all(color: Colors.white, width: 2),
+      ),
+    ),
+  ),
+
           ],
         ),
       ],
@@ -650,27 +703,31 @@ WidgetsBinding.instance.addPostFrameCallback((_) {
     });
   }
 
-  Future<void> _openActivityFolder() async {
-    if (!_state.isRecording) return;
+Future<void> _openActivityFolder() async {
+  if (!_state.isRecording) return;
 
-    final finished = await _recorder.finishAndSave();
-    if (!mounted || finished == null) return;
+  // Finish recording & persist to DB
+  final finished = await _recorder.finishAndSave();
+  if (!mounted || finished == null) return;
 
-    final bool? saved = await Navigator.push<bool>(
-      context,
-      MaterialPageRoute(
-        builder: (_) => ActivitySummaryScreen(
-          activity: finished,
-          thinkRepo: _thinkRepo,
-          ),
+  // 🚨 finished IS the activity map — use it directly
+  final bool? saved = await Navigator.push<bool>(
+    context,
+    MaterialPageRoute(
+      builder: (_) => ActivitySummaryScreen(
+        activityId: finished['id'],
+        activity: finished,
+        thinkRepo: _thinkRepo,
       ),
-    );
+    ),
+  );
 
-    if (saved == true) {
-      _activityController.beginFinalizing();
-_activityController.reset();
-    }
+  if (saved == true) {
+    _activityController!.beginFinalizing();
+    _activityController!.reset();
   }
+}
+
 
   void _openStartActivitySheet() {
     showModalBottomSheet(
@@ -679,12 +736,26 @@ _activityController.reset();
       backgroundColor: Colors.transparent,
       builder: (_) {
         return StartActivitySheet(
-          controller: _activityController,
+          controller: _activityController!,
           onAddRoute: _openRoutePlanner,
-          onStart: (mode) {
-            _activityController.start(mode);
-            _recorder.start(mode: mode);
-          },
+onStart: (mode) async {
+  // 1) Start controller FIRST and await it (controller generates activityId + sessionStart)
+  await _activityController.start(mode);
+
+  // 2) Wire recorder -> controller
+  _recorder.liveController = _activityController;
+
+  // 3) Start recorder using controller's ID + start time (single source of truth)
+  await _recorder.start(
+    mode: mode,
+    activityIdOverride: _activityController.activityId,
+    startTimeOverride: _activityController.sessionStart,
+    distanceOverride: _activityController.distanceMeters,
+    createIfMissing: true,
+  );
+},
+
+
           onOpenHistory: _openHistoryScreen,
         );
       },
@@ -696,16 +767,47 @@ _activityController.reset();
   // ------------------------------------------------------------
   @override
   Widget build(BuildContext context) {
+    final isRecording = false;
+
     return PopScope(
       canPop: false,
       onPopInvoked: (didPop) async {
-        if (_activityController.isLive) {
+        if (_activityController!.isLive) {
           await _confirmStop();
           return;
         }
         Navigator.of(context).maybePop();
       },
       child: Scaffold(
+appBar: AppBar(
+  title: const Text("TrailMthr"),
+  actions: [
+    PopupMenuButton<String>(
+      onSelected: (value) async {
+        if (value == "export_logs") {
+          final path = await DebugExport.exportLogs();
+
+          final msg = (path == null)
+              ? "No logs found"
+              : "Logs exported to:\n$path";
+
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text(msg)),
+            );
+          }
+        }
+      },
+      itemBuilder: (context) => [
+        const PopupMenuItem(
+          value: "export_logs",
+          child: Text("Export Debug Logs"),
+        ),
+      ],
+    ),
+  ],
+),
+
       body: Stack(
         children: [
           Positioned.fill(child: _buildMap(_mapCenter)),
@@ -719,9 +821,9 @@ _activityController.reset();
             onOpenActivityHistory: _openHistoryScreen,
           ),
 
-          if (_activityController.isLive && recorder.hasActiveStream)
+          if (_activityController!.isLive && recorder.hasActiveStream)
             LiveStatsPanel(
-              controller: _activityController,
+              controller: _activityController!,
               recorder: _recorder,
               onStop: _openActivityFolder,
             ),

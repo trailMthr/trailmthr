@@ -1,17 +1,17 @@
 import 'package:flutter/material.dart';
 
-import 'features/thinkspace/screens/thinkspace_home_screen.dart';
-import 'features/map/screens/map_screen.dart';
-import 'features/community/community_placeholder.dart';
-import 'features/thinkspace/data/thinkspace_repository.dart';
-import 'features/activity/data/activity_db.dart';
-
-import 'features/activity/controllers/activity_recorder_controller.dart';
-
 import 'features/activity/controllers/live_activity_controller.dart';
 import 'features/activity/controllers/activity_recorder.dart';
-
 import 'features/activity/data/activity_repository.dart';
+import 'features/activity/data/activity_db.dart';
+
+import 'features/thinkspace/data/thinkspace_repository.dart';
+
+import 'features/map/screens/map_screen.dart';
+import 'features/thinkspace/screens/thinkspace_home_screen.dart';
+import 'features/community/community_placeholder.dart';
+
+import 'package:trailmthr_test2/services/data_export_service.dart';
 
 class MainAppShell extends StatefulWidget {
   const MainAppShell({super.key});
@@ -21,120 +21,93 @@ class MainAppShell extends StatefulWidget {
 }
 
 class _MainAppShellState extends State<MainAppShell> {
-  /// MAP always starts centered
   int _index = 1;
 
-  /// For double-back-to-exit behavior
-  DateTime? _lastBackPress;
-
-late final ActivityRepository _activityRepo;
-
-
-  late LiveActivityController _activityController;
-  late ActivityRecorder _recorder;
+  late final ActivityRepository _activityRepo;
   late final ThinkSpaceRepository _thinkRepo;
+  late final ActivityRecorder _recorder;
+  late final LiveActivityController _activityController;
 
   @override
   void initState() {
     super.initState();
-_activityRepo = ActivityRepository();
-  _activityController = LiveActivityController();
 
-    // One unified DB → ThinkSpace lives in activity DB
-    _thinkRepo = ThinkSpaceRepository(() async {
-      return ActivityDb.instance.database;
-    });
+    _activityRepo = ActivityRepository();
+    _thinkRepo = ThinkSpaceRepository(() async => await ActivityDb.instance.database);
+    _recorder = ActivityRecorder(_activityRepo, _thinkRepo);
 
-  _thinkRepo.ensureTable();
+    _activityController = LiveActivityController();
 
-  _recorder = ActivityRecorder(
-    _activityRepo,
-    _thinkRepo,
-  );
+    // Recovery init happens once for app lifetime.
+    // MapScreen owns the resume prompt UI.
+    _activityController.initRecovery();
   }
 
-  /// Global back-button handler
-  Future<bool> _handleBack() async {
-    final now = DateTime.now();
+  Future<void> _exportAllData() async {
+    try {
+      final db = await ActivityDb.instance.database;
+      final file = await DataExportService.exportFullDatabase(db);
 
-    // 🔴 TODO: wire this to real activity recording state
-    final bool isRecordingActive = 
-        ActivityRecorderController.instance.isRecording;
-
-    if (isRecordingActive) {
-      final shouldExit = await showDialog<bool>(
-        context: context,
-        builder: (_) => AlertDialog(
-          title: const Text("Activity in progress"),
-          content: const Text(
-            "You are currently recording an activity.\n\n"
-            "Leaving will stop and discard it.",
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text("Cancel"),
-            ),
-            TextButton(
-              onPressed: () => Navigator.pop(context, true),
-              child: const Text("Leave"),
-            ),
-          ],
-        ),
-      );
-
-      return shouldExit ?? false;
-    }
-
-    // 🟡 Double-back to exit
-    if (_lastBackPress == null ||
-        now.difference(_lastBackPress!) > const Duration(seconds: 2)) {
-      _lastBackPress = now;
+      if (!mounted) return;
 
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Press back again to exit")),
+        SnackBar(
+          content: Text('Exported data to:\n${file.path}'),
+          duration: const Duration(seconds: 5),
+        ),
       );
-      return false;
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Export failed: $e'),
+          duration: const Duration(seconds: 5),
+        ),
+      );
     }
-
-    return true;
   }
 
   @override
   Widget build(BuildContext context) {
-    // Screens in stable order: ThinkSpace, Map, Community
-    final screens = [
-      ThinkSpaceHomeScreen(repository: _thinkRepo),
+    final pages = [
+      CommunityPlaceholderScreen(),
       MapScreen(
         controller: _activityController,
         recorder: _recorder,
         thinkRepo: _thinkRepo,
       ),
-      CommunityPlaceholderScreen(),
+      ThinkSpaceHomeScreen(repository: _thinkRepo),
     ];
 
-    return WillPopScope(
-      onWillPop: _handleBack,
-      child: Scaffold(
-        body: screens[_index],
-        bottomNavigationBar: BottomNavigationBar(
-          currentIndex: _index,
-          onTap: (i) => setState(() => _index = i),
-          items: const [
-            BottomNavigationBarItem(
-              icon: Icon(Icons.menu_book_rounded),
-              label: 'ThinkSpace',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.map_rounded),
-              label: 'Map',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.group_rounded),
-              label: 'Community',
-            ),
-          ],
-        ),
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('TrailMTHR'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.download),
+            tooltip: 'Export All Data',
+            onPressed: _exportAllData,
+          ),
+        ],
+      ),
+      body: pages[_index],
+      bottomNavigationBar: BottomNavigationBar(
+        currentIndex: _index,
+        onTap: (i) => setState(() => _index = i),
+        items: const [
+          BottomNavigationBarItem(
+            icon: Icon(Icons.people),
+            label: 'Community',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.map),
+            label: 'Map',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.psychology),
+            label: 'Think',
+          ),
+        ],
       ),
     );
   }

@@ -75,3 +75,27 @@ Repo discipline, signed commits, architectural truth locked.
 
 ---
 
+## 2026-01-15 — Phase 1 Core Loop: Force-close Recovery + Pause-safe Timer Stabilized
+
+### What changed
+- Unified live session identity: **LiveActivityController activityId is now authoritative**, recorder starts with `activityIdOverride` + `startTimeOverride`.
+- Recovery UX stabilized:
+  - Single resume prompt (no stacking / re-entrant dialogs).
+  - Resume handshake order hardened (recorder stream reattaches before controller lifecycle flips).
+- Timekeeping truth fixed:
+  - Recorder duration mirrors controller `elapsed` (pause-aware, recovery-safe).
+  - UI timer repaint after process death fixed by starting ticker during recovery + on resume.
+
+### Bug symptoms eliminated
+- Resume prompt not appearing after force-close (ID mismatch).
+- Multiple resume prompts (re-entrant dialog race).
+- Timer “freezing” after restart until user interaction (ticker not running post-recovery).
+
+### Tests performed
+- Start → pause/resume → finish (baseline).
+- Start → force-close → reopen → resume (single prompt, continued tracking).
+- Pause → force-close → reopen → resume (paused truth preserved).
+- Verified: polyline continuity, distance continuity, pause-safe elapsed time, single resume prompt.
+
+### Notes
+- Debug JSONL logs confirmed GPS gating and point persistence remained stable during recovery scenarios.

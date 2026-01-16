@@ -35,51 +35,21 @@ class ActivityDb {
         await _createActivityPointsTable(db);
         await _createThinkSpaceTable(db);
       },
-      onUpgrade: (db, oldVersion, newVersion) async {
-        // --- Upgrade to stable unified schema ---
+onUpgrade: (db, oldVersion, newVersion) async {
+  // Development-safe migration policy:
+  // If upgrading from anything older than version 7, rebuild tables.
+  if (oldVersion < 7) {
+    await db.execute('DROP TABLE IF EXISTS activity_points;');
+    await db.execute('DROP TABLE IF EXISTS activities;');
+    await db.execute('DROP TABLE IF EXISTS think_nodes;');
 
-        if (oldVersion < 3) {
-          // Completely rebuild broken schemas
-          await db.execute('DROP TABLE IF EXISTS activity_points;');
-          await db.execute('DROP TABLE IF EXISTS activities;');
-        }
-
-        if (oldVersion < 4) {
-          // Older versions do not have ThinkSpace
-          await db.execute('DROP TABLE IF EXISTS think_nodes;');
-        }
-
-if (oldVersion < 4) {
-  await db.execute('ALTER TABLE think_nodes ADD COLUMN lifecycle_state TEXT NOT NULL DEFAULT "idea";');
-  await db.execute('ALTER TABLE think_nodes ADD COLUMN function_type TEXT NOT NULL DEFAULT "text";');
-  await db.execute('ALTER TABLE think_nodes ADD COLUMN archived INTEGER NOT NULL DEFAULT 0;');
-  await db.execute('ALTER TABLE think_nodes ADD COLUMN child_count INTEGER NOT NULL DEFAULT 0;');
-}
-
-if (oldVersion < 6) {
-  await db.execute("ALTER TABLE think_nodes ADD COLUMN is_terminal INTEGER DEFAULT 0;");
-}
-if (oldVersion < 7) {
-  await db.execute(
-    "ALTER TABLE think_nodes ADD COLUMN lifecycle_state TEXT NOT NULL DEFAULT 'idea';",
-  );
-  await db.execute(
-    "ALTER TABLE think_nodes ADD COLUMN function_type TEXT NOT NULL DEFAULT 'text';",
-  );
-  await db.execute(
-    "ALTER TABLE think_nodes ADD COLUMN archived INTEGER NOT NULL DEFAULT 0;",
-  );
-  await db.execute(
-    "ALTER TABLE think_nodes ADD COLUMN child_count INTEGER NOT NULL DEFAULT 0;",
-  );
-}
-
-
-        // (Re)create correct tables
-        await _createActivitiesTable(db);
-        await _createActivityPointsTable(db);
-        await _createThinkSpaceTable(db);
-      },
+    await _createActivitiesTable(db);
+    await _createActivityPointsTable(db);
+    await _createThinkSpaceTable(db);
+  } else {
+    // Future migrations go here
+  }
+},
     );
 
     // ------------------------------------------------------------

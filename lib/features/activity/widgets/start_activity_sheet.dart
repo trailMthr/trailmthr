@@ -8,7 +8,7 @@ import '../models/tracking_mode.dart';
 class StartActivitySheet extends StatefulWidget {
   final LiveActivityController controller;
   final VoidCallback onAddRoute; // hook to route planner
-final void Function(TrackingMode mode) onStart;
+final Future<void> Function(TrackingMode mode) onStart;
 final VoidCallback onOpenHistory;
 
   const StartActivitySheet({
@@ -32,15 +32,24 @@ class _StartActivitySheetState extends State<StartActivitySheet> {
     _selected = widget.controller.selectedMode;
   }
 
-void _start() {
+void _start() async {
   if (_selected == null) return;
 
-  widget.onStart(_selected!); // ✅ starts recorder + controller together
+  // 🛡 Ensure everything is configured correctly first
+  final ok = await widget.controller.ensureRecordingReady(context);
+  if (!ok) {
+    // Do NOT dismiss the sheet — user may need to read instructions
+    return;
+  }
+
+  // ▶️ Safe to start
+  await widget.onStart(_selected!);
 
   if (mounted) {
     Navigator.of(context).pop();
   }
 }
+
 
 
   @override
