@@ -1,0 +1,368 @@
+TrailMthr Failure Modes Appendix
+
+(Non-Coercive, Contract-Based Enforcement)
+
+This appendix enumerates known, anticipated, and structural failure modes of the TrailMthr system and the design constraints that neutralize them.
+
+Failure modes are treated as inevitable pressures, not hypothetical bugs.
+
+FM-1: Silent Expansion of Enforcement Scope
+Description
+
+The system gradually begins enforcing conditions not explicitly defined in contracts, often justified as “safety,” “efficiency,” or “best practice.”
+
+Risk
+
+Emergent coercion
+
+De facto moral enforcement
+
+Drift toward social credit logic
+
+Prevention Controls
+
+Enforcement may only reference signed contract IDs
+
+All enforcement logic must cite the violated clause
+
+No global enforcement rules allowed
+
+Contracts are immutable once accepted
+
+Canon Rule
+
+No enforcement action may exist without a cited, signed, and versioned contract.
+
+FM-2: Inference-Based Decision Making (Pre-Crime Drift)
+Description
+
+The system begins acting on predictions, correlations, or inferred intent rather than explicit user claims.
+
+Risk
+
+Minority Report dynamics
+
+Behavioral profiling
+
+Discriminatory outcomes
+
+Prevention Controls
+
+No predictive models allowed in enforcement paths
+
+No probabilistic thresholds for rejection
+
+No behavioral trend analysis for access decisions
+
+Canon Rule
+
+TrailMthr may evaluate facts, not futures.
+
+FM-3: Consent Laundering
+Description
+
+Consent becomes bundled, vague, or effectively mandatory, causing users to agree without meaningful understanding.
+
+Risk
+
+Illusory consent
+
+Legal vulnerability
+
+Ethical collapse
+
+Prevention Controls
+
+Consent must be granular, revocable, and purpose-bound
+
+No “accept all to continue” patterns
+
+Each verification channel must be individually accepted
+
+Canon Rule
+
+Consent must be as specific as enforcement is strict.
+
+FM-4: Default Surveillance via “Optional” Features
+Description
+
+Features labeled optional become practically required, creating soft surveillance.
+
+Risk
+
+Coerced participation
+
+Functionally mandatory tracking
+
+Network capture
+
+Prevention Controls
+
+All core functionality must operate in offline / zero-data mode
+
+Enhanced trust features must degrade gracefully
+
+No functionality may depend on background monitoring unless explicitly contracted
+
+Canon Rule
+
+Core utility must not depend on observation.
+
+FM-5: Reputation Blacklists & Shadow Bans
+Description
+
+Accounts become silently downgraded, throttled, or hidden without explanation.
+
+Risk
+
+Invisible punishment
+
+Lack of recourse
+
+Social ostracism by obscurity
+
+Prevention Controls
+
+All refusals must be explicit and explainable
+
+No hidden trust scores
+
+No global reputation numbers
+
+Canon Rule
+
+If the system refuses, it must say why.
+
+FM-6: Third-Party Pressure Capture
+Description
+
+Governments, corporations, or platforms pressure TrailMthr to enforce external rules.
+
+Risk
+
+Legal coercion
+
+Jurisdictional overreach
+
+Mission inversion
+
+Prevention Controls
+
+No external enforcement APIs
+
+No “law enforcement mode”
+
+TrailMthr does not certify compliance with law — only contracts
+
+Canon Rule
+
+TrailMthr enforces agreements, not laws.
+
+FM-7: Feature Creep into Punishment
+Description
+
+Service refusal gradually becomes punitive (e.g., locking unrelated features).
+
+Risk
+
+Coercion by deprivation
+
+Unjust collective penalties
+
+Prevention Controls
+
+Enforcement must be feature-scoped
+
+No cross-domain penalties
+
+Emergency and safety features are never restricted
+
+Canon Rule
+
+Refusal must be proportional and scoped.
+
+FM-8: Irreversible Enforcement States
+Description
+
+Users become permanently locked out with no exit path.
+
+Risk
+
+Digital exile
+
+Abuse amplification
+
+Founder-less tyranny
+
+Prevention Controls
+
+All enforcement states must be reversible
+
+Clear remediation paths must exist
+
+Exit without penalty is always allowed
+
+Canon Rule
+
+No state is permanent.
+
+FM-9: Data Hoarding & Retroactive Reinterpretation
+Description
+
+Historical data is reprocessed under new rules to justify enforcement.
+
+Risk
+
+Retroactive punishment
+
+Trust collapse
+
+Prevention Controls
+
+Enforcement can only use data collected under the same contract version
+
+Old data cannot trigger new enforcement
+
+Contracts are time-bounded
+
+Canon Rule
+
+Past consent does not justify future enforcement.
+
+FM-10: Human Override Abuse
+Description
+
+Admins or moderators manually override enforcement outcomes.
+
+Risk
+
+Arbitrary authority
+
+Insider abuse
+
+Corruption
+
+Prevention Controls
+
+No admin enforcement powers
+
+Human review may only restore access, never revoke
+
+All overrides are logged and public (or auditable)
+
+Canon Rule
+
+Humans may forgive, never punish.
+
+FM-11: “For Their Own Good” Logic
+Description
+
+System justifies enforcement to protect the user from themselves.
+
+Risk
+
+Paternalism
+
+Autonomy erosion
+
+Prevention Controls
+
+No enforcement based on welfare judgments
+
+Warnings allowed; refusals only via contract breach
+
+Canon Rule
+
+TrailMthr informs; users decide.
+
+FM-12: Network Effects as Coercion
+Description
+
+Loss of access becomes practically unbearable due to network dominance.
+
+Risk
+
+De facto coercion
+
+Monopolistic abuse
+
+Prevention Controls
+
+Open data formats
+
+Easy export & migration
+
+Federated architecture where possible
+
+Canon Rule
+
+Exit must be real, not theoretical.
+
+FM-13: Moral Reframing of Technical Failures
+Description
+
+Technical errors are reframed as user fault or misconduct.
+
+Risk
+
+Blame shifting
+
+User injustice
+
+Prevention Controls
+
+Distinguish system uncertainty from contract violation
+
+System errors default to user benefit
+
+Canon Rule
+
+Uncertainty favors the user.
+
+FM-14: Gradual Language Corruption
+Description
+
+Terminology shifts from neutral (“refusal”) to moralized (“violation,” “bad actor”).
+
+Risk
+
+Cultural drift toward punishment
+
+Prevention Controls
+
+Controlled vocabulary
+
+Language audits
+
+Canon glossary enforcement
+
+Canon Rule
+
+Language shapes power.
+
+FM-15: Success Becoming the Threat
+Description
+
+TrailMthr’s effectiveness creates pressure to “do more” with its data.
+
+Risk
+
+Mission creep at scale
+
+Prevention Controls
+
+Capability ceilings
+
+Explicit non-goals
+
+Constitutional immutability of enforcement principles
+
+Canon Rule
+
+Not everything possible is permitted.
+
+Closing Statement (Appendix Seal)
+
+TrailMthr is a system of voluntary trust, not social control.
+Its greatest risk is success without restraint.
+These failure modes are acknowledged so they can never be denied.
